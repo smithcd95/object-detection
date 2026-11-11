@@ -1,10 +1,13 @@
 # The Old Bakehouse
 
-A small pixel-art kitchen scene where the Old Baker (Halvard) walks between the oven,
-counter, work table, flour sacks, water barrels, cooling rack, window and door.
+A pixel-art castle bakery where the Old Baker (Halvard) walks between the oven, flour sacks,
+worktable, bread rack, water bucket, barrels and the two doorways.
 
-- Plain HTML5 canvas, no libraries. The room is drawn in code at 512x368 and scaled up with nearest-neighbour.
-- 8-direction A* pathfinding on a 32px tile grid; furniture is depth-sorted against the baker's feet.
+- The room comes from PixelLab's room generator (top-down, 256x256, 32px cells) with its furniture
+  cut out as separate pieces (`rooms/castle_bakery/`: `lit.png` is the empty floor, `pieces/` the furniture
+  and shadows, `pieces.json` their positions and foot lines). `room.png` is the room as originally painted.
+- Plain HTML5 canvas, no libraries, scaled up by whole pixels so the art stays crisp.
+- A* pathfinding on an 8px grid; furniture is depth-sorted against the baker's feet so he walks behind it.
 - Click/tap the floor to walk him there; WASD / arrow keys steer him directly; "Wandering" toggles his routine.
 
 ## Build

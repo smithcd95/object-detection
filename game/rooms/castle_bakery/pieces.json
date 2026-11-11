@@ -1,0 +1,93 @@
+[
+ {
+  "name": "flour sacks pile",
+  "x": 5,
+  "y": 23,
+  "foot": 79,
+  "w": 63,
+  "h": 69,
+  "shadow": {
+   "x": 16,
+   "y": 49,
+   "file": "pieces/0_shadow.png"
+  }
+ },
+ {
+  "name": "stone bread oven",
+  "x": 68,
+  "y": 11,
+  "foot": 76,
+  "w": 73,
+  "h": 79,
+  "shadow": {
+   "x": 79,
+   "y": 24,
+   "file": "pieces/1_shadow.png"
+  }
+ },
+ {
+  "name": "wooden worktable with rolling pin and bowl",
+  "x": 38,
+  "y": 103,
+  "foot": 153,
+  "w": 86,
+  "h": 63,
+  "shadow": {
+   "x": 48,
+   "y": 113,
+   "file": "pieces/2_shadow.png"
+  }
+ },
+ {
+  "name": "bread shelving rack",
+  "x": 196,
+  "y": 29,
+  "foot": 148,
+  "w": 56,
+  "h": 132,
+  "shadow": {
+   "x": 206,
+   "y": 48,
+   "file": "pieces/3_shadow.png"
+  }
+ },
+ {
+  "name": "ladle",
+  "x": 198,
+  "y": 144,
+  "foot": 173,
+  "w": 34,
+  "h": 42,
+  "shadow": {
+   "x": 208,
+   "y": 153,
+   "file": "pieces/4_shadow.png"
+  }
+ },
+ {
+  "name": "water bucket",
+  "x": 207,
+  "y": 144,
+  "foot": 175,
+  "w": 41,
+  "h": 44,
+  "shadow": {
+   "x": 215,
+   "y": 152,
+   "file": "pieces/5_shadow.png"
+  }
+ },
+ {
+  "name": "barrel cluster",
+  "x": 158,
+  "y": 179,
+  "foot": 239,
+  "w": 94,
+  "h": 73,
+  "shadow": {
+   "x": 169,
+   "y": 188,
+   "file": "pieces/6_shadow.png"
+  }
+ }
+]
