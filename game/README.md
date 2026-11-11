@@ -26,3 +26,9 @@ original painting with the baker sprite as the style image).
 - Walkable areas are hand-traced polygons (toggle "Show walkable paths"); A* on a 4px grid.
 - Atmosphere (all code, no generations): flickering glow on every lamp and window, rising embers,
   glints moving on the sea, two layers of drifting mist, floating dust motes and an edge vignette.
+
+# Tavern (interior prototype)
+
+`tavern.html` (built from `tavern.src.html`) uses `maps/tavern/tavern_688x384.png`. Same controls and camera as the
+village; the baker is drawn at 145% here (`SCALE`) so he reads at the right size next to the stools and tables.
+Atmosphere: fireplace glow and flicker, rising embers, warm dust motes, edge vignette.

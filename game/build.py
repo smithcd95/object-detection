@@ -55,3 +55,10 @@ vout = (vsrc.replace("__ATLAS__", uri).replace("__FOOT_Y__", str(foot_y))
         .replace("__PLATE__", data_uri(os.path.join(HERE, "maps", "lighthouse_village", "section_01.png"))))
 open(os.path.join(HERE, "village.html"), "w", encoding="utf-8").write(vout)
 print("village.html written")
+
+# Tavern interior prototype.
+tsrc = open(os.path.join(HERE, "tavern.src.html"), encoding="utf-8").read()
+tout = (tsrc.replace("__ATLAS__", uri).replace("__FOOT_Y__", str(foot_y))
+        .replace("__PLATE__", data_uri(os.path.join(HERE, "maps", "tavern", "tavern_688x384.png"))))
+open(os.path.join(HERE, "tavern.html"), "w", encoding="utf-8").write(tout)
+print("tavern.html written")
