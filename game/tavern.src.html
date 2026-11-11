@@ -130,7 +130,9 @@ const dirFrom = (dx, dy) => [2, 1, 0, 7, 6, 5, 4, 3][(Math.round(Math.atan2(dy, 
 // ---------- camera ----------
 const cam = { x: 0, y: 0 };
 function updateCam(dt, snap) {
-  const tx = Math.max(0, Math.min(WW - VW, baker.x - VW / 2)), ty = Math.max(0, Math.min(WH - VH, baker.y - 30 - VH / 2));
+  // when the view is bigger than the room on an axis, centre the room on that axis (dark space around it)
+  const tx = VW >= WW ? (WW - VW) / 2 : Math.max(0, Math.min(WW - VW, baker.x - VW / 2));
+  const ty = VH >= WH ? (WH - VH) / 2 : Math.max(0, Math.min(WH - VH, baker.y - 30 - VH / 2));
   const k = snap ? 1 : 1 - Math.pow(0.002, dt);
   cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
 }
@@ -155,9 +157,10 @@ pathBtn.addEventListener('click', () => { showPaths = !showPaths; setBtn(pathBtn
 // fit the camera to the screen: the shorter side shows about 300 world pixels, never more than the map
 function fitView() {
   const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
-  let k = Math.min(w, h) / 380;
+  // landscape: the height shows ~380 room pixels; portrait phones: the width shows ~360
+  let k = w < h ? w / 360 : h / 380;
   let vw = w / k, vh = h / k;
-  const over = Math.max(vw / WW, vh / WH, 1); vw /= over; vh /= over;
+  const over = Math.max(vw / WW, 1); vw /= over; vh /= over;
   VW = Math.round(vw); VH = Math.round(vh);
   cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false;
   updateCam(0, true);
@@ -247,6 +250,7 @@ function draw(time) {
   if (!plate.naturalWidth) return;
   const ox = Math.round(cam.x), oy = Math.round(cam.y);
   ctx.setTransform(1, 0, 0, 1, -ox, -oy);
+  ctx.fillStyle = '#05070b'; ctx.fillRect(ox, oy, VW, VH);
   ctx.drawImage(plate, 0, 0);
 
   // sea glints
