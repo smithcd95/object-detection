@@ -48,3 +48,10 @@ room = {"floor": data_uri(os.path.join(ROOM_DIR, "lit.png")), "pieces": pieces}
 out = src.replace("__ATLAS__", uri).replace("__FOOT_Y__", str(foot_y)).replace("__ROOM__", json.dumps(room))
 open(os.path.join(HERE, "bakehouse.html"), "w", encoding="utf-8").write(out)
 print("foot_y", foot_y, "atlas bytes", len(buf.getvalue()))
+
+# Lighthouse village prototype: base plate + the same baker atlas.
+vsrc = open(os.path.join(HERE, "village.src.html"), encoding="utf-8").read()
+vout = (vsrc.replace("__ATLAS__", uri).replace("__FOOT_Y__", str(foot_y))
+        .replace("__PLATE__", data_uri(os.path.join(HERE, "maps", "lighthouse_village", "section_01.png"))))
+open(os.path.join(HERE, "village.html"), "w", encoding="utf-8").write(vout)
+print("village.html written")

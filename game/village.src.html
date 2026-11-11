@@ -1,0 +1,294 @@
+<title>Lighthouse Cliffs</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: a wide night-time game window, title above, one line of controls below. */
+:root {
+  --ground: #0c1018;     /* deep night page */
+  --frame: #1b2232;      /* slate frame */
+  --frame-hi: #2d3850;
+  --text: #d9dcea;
+  --muted: #8790ab;
+  --amber: #f0b45c;      /* lamplight accent */
+  --font-display: "Pixelify Sans", ui-monospace, monospace;
+  color-scheme: dark;
+}
+body {
+  background: var(--ground); color: var(--text); font-family: var(--font-display); font-size: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 28px;
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 12px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.3rem); font-weight: 700; color: var(--amber); text-shadow: 2px 2px 0 #000; text-wrap: balance; }
+.where { margin: 0; color: var(--muted); }
+.frame { background: #05070b; border: 3px solid #000; box-shadow: inset 0 0 0 3px var(--frame-hi), inset 0 0 0 6px #000; padding: 9px; }
+canvas#scene { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; touch-action: manipulation; background: #05070b; }
+canvas#scene:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; color: var(--muted); }
+.bar b { color: var(--amber); font-weight: 600; }
+button { font: 600 0.95rem var(--font-display); color: var(--text); background: var(--frame); border: 3px solid #000; box-shadow: inset 0 0 0 2px var(--frame-hi); padding: 6px 12px; cursor: pointer; }
+button:hover { background: var(--frame-hi); }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+button[aria-pressed="false"] { color: var(--muted); }
+kbd { font-size: 0.8rem; background: #000; color: var(--text); padding: 1px 5px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Lighthouse Cliffs</h1>
+    <p class="where">Starter village &middot; night</p>
+  </header>
+  <div class="frame"><canvas id="scene" width="456" height="304" tabindex="0" aria-label="Night-time pixel-art cliff village by a lighthouse. Click or tap a path to walk the baker there."></canvas></div>
+  <div class="bar">
+    <span>Click or tap a path to walk there &middot; <kbd>WASD</kbd> / arrows also work</span>
+    <button id="fx" type="button" aria-pressed="true">Atmosphere: on</button>
+    <button id="paths" type="button" aria-pressed="false">Show walkable paths</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const VW = 456, VH = 304;                 // camera view in world pixels
+const FOOT_Y = __FOOT_Y__;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cv = document.getElementById('scene'), ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const load = (s) => { const i = new Image(); i.src = s; return i; };
+const plate = load('__PLATE__');
+const atlas = load('__ATLAS__');
+let WW = 512, WH = 512;
+
+// ---------- walkable areas (world pixels), traced over the painting ----------
+const WALK = [
+  [[28,160],[70,132],[112,128],[160,150],[198,160],[226,176],[242,202],[228,232],[192,250],[140,246],[86,226],[44,196]], // lighthouse plaza
+  [[188,240],[232,232],[262,244],[302,262],[346,286],[332,306],[292,302],[250,288],[212,272]],                             // middle terrace
+  [[232,160],[262,152],[336,232],[326,274],[294,266]],                                                                    // stair up to the houses
+  [[88,226],[140,240],[262,446],[254,480],[226,474]],                                                                     // long stairway down
+  [[256,380],[330,346],[392,350],[432,388],[472,420],[504,468],[512,500],[430,512],[300,512],[262,472],[248,440]],          // lower plaza
+];
+const BLOCK = [[104,196,130,218], [240,246,266,276], [340,396,354,412]]; // bench, barrel, lamppost foot
+function inPoly(x, y, p) { let c = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) { const [xi, yi] = p[i], [xj, yj] = p[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; }
+const walkable = (x, y) => WALK.some(p => inPoly(x, y, p)) && !BLOCK.some(([a, b, c, d]) => x > a && x < c && y > b && y < d);
+
+// ---------- A* on a 4px grid ----------
+const G = 4, GC = WW / G, GR = WH / G;
+const okCache = new Uint8Array(GC * GR);
+for (let r = 0; r < GR; r++) for (let c = 0; c < GC; c++) okCache[r * GC + c] = walkable(c * G + 2, r * G + 2) ? 1 : 0;
+const cellOK = (c, r) => c >= 0 && r >= 0 && c < GC && r < GR && okCache[r * GC + c] === 1;
+function nearestOpen(c, r) {
+  if (cellOK(c, r)) return { c, r };
+  for (let d = 1; d < 40; d++) for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++)
+    if ((Math.abs(dc) === d || Math.abs(dr) === d) && cellOK(c + dc, r + dr)) return { c: c + dc, r: r + dr };
+  return null;
+}
+function astar(s, g) {
+  const key = (c, r) => r * GC + c, sk = key(s.c, s.r), gk = key(g.c, g.r);
+  const open = [{ c: s.c, r: s.r, g: 0, f: 0 }], from = new Map(), gs = new Map([[sk, 0]]), closed = new Set();
+  const h = (c, r) => { const dx = Math.abs(c - g.c), dy = Math.abs(r - g.r); return Math.max(dx, dy) + 0.414 * Math.min(dx, dy); };
+  while (open.length) {
+    let bi = 0; for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
+    const cur = open.splice(bi, 1)[0], ck = key(cur.c, cur.r);
+    if (closed.has(ck)) continue; closed.add(ck);
+    if (ck === gk) { const out = []; let k = gk; while (k !== sk) { out.unshift({ c: k % GC, r: (k / GC) | 0 }); k = from.get(k); } return out; }
+    for (let dc = -1; dc <= 1; dc++) for (let dr = -1; dr <= 1; dr++) {
+      if (!dc && !dr) continue;
+      const nc = cur.c + dc, nr = cur.r + dr;
+      if (!cellOK(nc, nr) || (dc && dr && (!cellOK(cur.c + dc, cur.r) || !cellOK(cur.c, cur.r + dr)))) continue;
+      const ng = cur.g + (dc && dr ? 1.414 : 1), k = key(nc, nr);
+      if (ng < (gs.get(k) ?? Infinity)) { gs.set(k, ng); from.set(k, ck); open.push({ c: nc, r: nr, g: ng, f: ng + h(nc, nr) }); }
+    }
+  }
+  return null;
+}
+function smooth(pts, sx, sy) {
+  const clear = (a, b) => { const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 2); for (let i = 1; i <= n; i++) if (!walkable(a.x + (b.x - a.x) * i / n, a.y + (b.y - a.y) * i / n)) return false; return true; };
+  const out = []; let a = { x: sx, y: sy }, i = 0;
+  while (i < pts.length) { let j = pts.length - 1; while (j > i && !clear(a, pts[j])) j--; out.push(pts[j]); a = pts[j]; i = j + 1; }
+  return out;
+}
+
+// ---------- baker ----------
+const baker = { x: 150, y: 200, dir: 0, moving: false, t: 0, path: [], speed: 46 };
+function goTo(x, y) {
+  const g = nearestOpen(Math.floor(x / G), Math.floor(y / G)), s = nearestOpen(Math.floor(baker.x / G), Math.floor(baker.y / G));
+  if (!g || !s) return false;
+  const p = astar(s, g); if (!p) return false;
+  const pts = p.map(n => ({ x: n.c * G + 2, y: n.r * G + 2 }));
+  if (walkable(x, y)) pts.push({ x, y });
+  baker.path = smooth(pts, baker.x, baker.y);
+  return true;
+}
+const dirFrom = (dx, dy) => [2, 1, 0, 7, 6, 5, 4, 3][(Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8];
+
+// ---------- camera ----------
+const cam = { x: 0, y: 0 };
+function updateCam(dt, snap) {
+  const tx = Math.max(0, Math.min(WW - VW, baker.x - VW / 2)), ty = Math.max(0, Math.min(WH - VH, baker.y - 30 - VH / 2));
+  const k = snap ? 1 : 1 - Math.pow(0.002, dt);
+  cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+}
+
+// ---------- input ----------
+let marker = null;
+cv.addEventListener('pointerdown', (e) => {
+  const rc = cv.getBoundingClientRect();
+  const x = (e.clientX - rc.left) * VW / rc.width + Math.round(cam.x), y = (e.clientY - rc.top) * VH / rc.height + Math.round(cam.y);
+  const ok = goTo(x, y); marker = { x, y, t: 0, ok };
+});
+const keys = new Set(), KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
+addEventListener('keydown', (e) => { const k = KEYMAP[e.code]; if (!k || e.target.tagName === 'BUTTON') return; keys.add(k); e.preventDefault(); });
+addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
+addEventListener('blur', () => keys.clear());
+let fxOn = !reduceMotion, showPaths = false;
+const fxBtn = document.getElementById('fx'), pathBtn = document.getElementById('paths');
+const setBtn = (b, on, a, z) => { b.setAttribute('aria-pressed', String(on)); b.textContent = on ? a : z; };
+setBtn(fxBtn, fxOn, 'Atmosphere: on', 'Atmosphere: off');
+fxBtn.addEventListener('click', () => { fxOn = !fxOn; setBtn(fxBtn, fxOn, 'Atmosphere: on', 'Atmosphere: off'); });
+pathBtn.addEventListener('click', () => { showPaths = !showPaths; setBtn(pathBtn, showPaths, 'Hide walkable paths', 'Show walkable paths'); });
+
+// ---------- atmosphere ----------
+// light sources: x, y, radius, colour, flicker strength
+const LIGHTS = [
+  [120, 101, 34, '255,170,80', 1], [145, 103, 34, '255,170,80', 1],     // plaza lanterns
+  [186, 45, 26, '255,190,100', .5], [180, 112, 30, '255,180,90', .6],   // lighthouse windows / door
+  [372, 352, 70, '255,165,70', 1],                                       // lower lamppost
+  [328, 206, 22, '255,180,90', .5], [381, 140, 20, '255,180,90', .5], [298, 116, 18, '255,180,90', .5],
+  [455, 70, 24, '255,170,80', 1], [486, 88, 24, '255,170,80', 1],       // hanging lanterns
+  [474, 300, 20, '255,180,90', .5], [506, 378, 22, '255,180,90', .5],
+];
+// sea mask: deep-blue pixels on the open water side, found once from the painting
+let seaPts = [];
+function buildSea() {
+  const [c, g] = (() => { const c = document.createElement('canvas'); c.width = WW; c.height = WH; return [c, c.getContext('2d', { willReadFrequently: true })]; })();
+  g.drawImage(plate, 0, 0); const d = g.getImageData(0, 0, WW, WH).data;
+  for (let y = 0; y < WH; y += 2) for (let x = 0; x < 200; x += 2) {
+    const i = (y * WW + x) * 4, r = d[i], gg = d[i + 1], b = d[i + 2];
+    if (b > r + 25 && b >= gg && r < 70 && (x < 40 || y < 130) && !walkable(x, y)) seaPts.push(x, y);
+  }
+}
+const sparkles = [];
+function spawnSparkle() { if (!seaPts.length) return; const k = (Math.random() * seaPts.length / 2 | 0) * 2; sparkles.push({ x: seaPts[k], y: seaPts[k + 1], life: 0, max: 1.2 + Math.random() * 1.6, len: 2 + (Math.random() * 4 | 0) }); }
+// soft mist: a tiling value-noise texture drawn large and drifting
+function makeMist(size, seed) {
+  const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'); const img = g.createImageData(size, size);
+  let s = seed; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const N = 8, grid = Array.from({ length: N * N }, rnd);
+  const at = (x, y) => grid[((y % N + N) % N) * N + ((x % N + N) % N)];
+  const sm = t => t * t * (3 - 2 * t);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const fx = x / size * N, fy = y / size * N, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = sm(fx - x0), ty = sm(fy - y0);
+    const v = (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) + (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty;
+    const a = Math.max(0, v - 0.45) * 1.8; const i = (y * size + x) * 4;
+    img.data[i] = 150; img.data[i + 1] = 165; img.data[i + 2] = 200; img.data[i + 3] = a * 255;
+  }
+  g.putImageData(img, 0, 0); return c;
+}
+const mistA = makeMist(128, 11), mistB = makeMist(128, 97);
+const motes = Array.from({ length: 40 }, () => ({ x: Math.random() * 512, y: Math.random() * 512, p: Math.random() * 6, s: 0.5 + Math.random() }));
+const embers = [];
+
+// ---------- update / draw ----------
+function update(dt, time) {
+  baker.t += dt;
+  let kx = (keys.has('r') ? 1 : 0) - (keys.has('l') ? 1 : 0), ky = (keys.has('d') ? 1 : 0) - (keys.has('u') ? 1 : 0);
+  if (kx || ky) {
+    const len = Math.hypot(kx, ky); kx /= len; ky /= len; baker.path = [];
+    const nx = baker.x + kx * baker.speed * dt, ny = baker.y + ky * baker.speed * dt;
+    if (walkable(nx, baker.y)) baker.x = nx; if (walkable(baker.x, ny)) baker.y = ny;
+    baker.dir = dirFrom(kx, ky); baker.moving = true;
+  } else if (baker.path.length) {
+    const t = baker.path[0], dx = t.x - baker.x, dy = t.y - baker.y, d = Math.hypot(dx, dy), st = baker.speed * dt;
+    if (d <= st) { baker.x = t.x; baker.y = t.y; baker.path.shift(); } else { baker.x += dx / d * st; baker.y += dy / d * st; }
+    if (d > 0.5) baker.dir = dirFrom(dx, dy); baker.moving = baker.path.length > 0;
+  } else baker.moving = false;
+  updateCam(dt);
+  if (marker) { marker.t += dt; if (marker.t > 0.7) marker = null; }
+  if (fxOn) {
+    if (Math.random() < dt * 18) spawnSparkle();
+    if (Math.random() < dt * 3) { const l = LIGHTS[(Math.random() * LIGHTS.length) | 0]; if (l[4] === 1) embers.push({ x: l[0] + (Math.random() - .5) * 4, y: l[1], vy: -6 - Math.random() * 6, vx: (Math.random() - .5) * 4, life: 1.4, max: 1.4 }); }
+  }
+  for (let i = sparkles.length - 1; i >= 0; i--) { const s = sparkles[i]; s.life += dt; s.x += dt * 2; if (s.life > s.max) sparkles.splice(i, 1); }
+  for (let i = embers.length - 1; i >= 0; i--) { const e = embers[i]; e.x += e.vx * dt; e.y += e.vy * dt; e.life -= dt; if (e.life <= 0) embers.splice(i, 1); }
+  for (const m of motes) { m.p += dt * .5; m.x += (6 + Math.sin(m.p) * 3) * dt * m.s; m.y += Math.cos(m.p * .7) * 2 * dt; if (m.x > 512) m.x -= 512; }
+}
+
+function drawBaker() {
+  if (!atlas.naturalWidth) return;
+  let sx, sy;
+  if (baker.moving) { sy = (8 + baker.dir) * 80; sx = (Math.floor(baker.t * 9) % 6) * 80; }
+  else if (baker.dir === 0) { sy = 16 * 80; sx = 0; }
+  else { sy = baker.dir * 80; sx = (Math.floor(baker.t * 4) % 4) * 80; }
+  ctx.fillStyle = 'rgba(5,6,14,.45)'; ctx.beginPath(); ctx.ellipse(baker.x, baker.y - 1, 15, 4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.drawImage(atlas, sx, sy, 80, 80, Math.round(baker.x - 40), Math.round(baker.y - FOOT_Y), 80, 80);
+}
+function glow(x, y, r, a, rgb) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+function draw(time) {
+  if (!plate.naturalWidth) return;
+  const ox = Math.round(cam.x), oy = Math.round(cam.y);
+  ctx.setTransform(1, 0, 0, 1, -ox, -oy);
+  ctx.drawImage(plate, 0, 0);
+
+  // sea glints
+  if (fxOn) for (const s of sparkles) { const a = Math.sin(Math.PI * s.life / s.max); ctx.fillStyle = `rgba(150,190,235,${a * .55})`; ctx.fillRect(Math.round(s.x), s.y, s.len, 1); }
+
+  drawBaker();
+
+  if (fxOn) {
+    // lamplight flicker
+    ctx.globalCompositeOperation = 'lighter';
+    LIGHTS.forEach(([x, y, r, rgb, f], i) => {
+      const fl = 1 - f * (0.12 + 0.1 * Math.sin(time * 7.3 + i * 2.1) + 0.08 * Math.sin(time * 13.1 + i * 5.7) + (Math.random() < .02 ? .25 : 0));
+      glow(x, y, r * (0.92 + fl * 0.1), 0.16 * fl, rgb);
+    });
+    for (const e of embers) { const a = e.life / e.max; ctx.fillStyle = `rgba(255,200,110,${a})`; ctx.fillRect(Math.round(e.x), Math.round(e.y), 1, 1); }
+    ctx.globalCompositeOperation = 'source-over';
+
+    // rolling mist: two layers drifting at different speeds, thicker low on the cliff
+    ctx.imageSmoothingEnabled = true;
+    const layer = (tex, scale, speed, alpha, yo) => {
+      const sz = 128 * scale, off = (time * speed) % sz;
+      ctx.globalAlpha = alpha;
+      for (let y = -sz + yo; y < WH + sz; y += sz) for (let x = -sz - off; x < WW + sz; x += sz) ctx.drawImage(tex, x, y, sz, sz);
+      ctx.globalAlpha = 1;
+    };
+    layer(mistA, 3, 5, 0.16, 20);
+    layer(mistB, 2, 9, 0.10, 70);
+    ctx.imageSmoothingEnabled = false;
+    // drifting dust motes
+    for (const m of motes) { const a = 0.25 + 0.25 * Math.sin(m.p * 2); ctx.fillStyle = `rgba(210,220,255,${a})`; ctx.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
+  }
+
+  if (showPaths) {
+    ctx.fillStyle = 'rgba(90,255,140,.22)'; ctx.strokeStyle = 'rgba(90,255,140,.8)';
+    for (const p of WALK) { ctx.beginPath(); p.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(255,80,80,.5)'; for (const [a, b, c, d] of BLOCK) ctx.fillRect(a, b, c - a, d - b);
+  }
+  if (marker) {
+    const s = 3 - marker.t * 3, a = 1 - marker.t / 0.7; ctx.fillStyle = marker.ok ? `rgba(255,225,60,${a})` : `rgba(255,70,60,${a})`;
+    for (let i = -s; i <= s; i++) { ctx.fillRect(Math.round(marker.x + i), Math.round(marker.y + i), 1, 1); ctx.fillRect(Math.round(marker.x + i), Math.round(marker.y - i), 1, 1); }
+  }
+
+  // night vignette in screen space
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const v = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.35, VW / 2, VH / 2, VW * 0.65);
+  v.addColorStop(0, 'rgba(0,0,10,0)'); v.addColorStop(1, 'rgba(0,0,10,.5)'); ctx.fillStyle = v; ctx.fillRect(0, 0, VW, VH);
+}
+
+let last = performance.now(), started = false;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (plate.naturalWidth && !started) { started = true; buildSea(); updateCam(0, true); }
+  update(dt, now / 1000); draw(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>

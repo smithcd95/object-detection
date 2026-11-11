@@ -15,3 +15,14 @@ worktable, bread rack, water bucket, barrels and the two doorways.
 and inlines it, writing the self-contained `bakehouse.html` (open it directly in a browser).
 
     python3 game/build.py
+
+# Lighthouse Cliffs (village prototype)
+
+`village.html` (built from `village.src.html` by the same `build.py`) puts the baker on the first full-detail
+village section, `maps/lighthouse_village/section_01.png` (512x512, made with PixelLab from a crop of the
+original painting with the baker sprite as the style image).
+
+- Camera shows 456x304 world pixels and follows the baker.
+- Walkable areas are hand-traced polygons (toggle "Show walkable paths"); A* on a 4px grid.
+- Atmosphere (all code, no generations): flickering glow on every lamp and window, rising embers,
+  glints moving on the sea, two layers of drifting mist, floating dust motes and a night vignette.
