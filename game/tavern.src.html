@@ -155,7 +155,7 @@ pathBtn.addEventListener('click', () => { showPaths = !showPaths; setBtn(pathBtn
 // fit the camera to the screen: the shorter side shows about 300 world pixels, never more than the map
 function fitView() {
   const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
-  let k = Math.min(w, h) / 320;
+  let k = Math.min(w, h) / 380;
   let vw = w / k, vh = h / k;
   const over = Math.max(vw / WW, vh / WH, 1); vw /= over; vh /= over;
   VW = Math.round(vw); VH = Math.round(vh);
