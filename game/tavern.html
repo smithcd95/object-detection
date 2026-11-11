@@ -45,6 +45,7 @@ canvas#scene:focus-visible { outline: none; }
 <h1 class="title" id="title">The Tavern<small>Tap the floor to walk</small></h1>
 <div class="tools">
   <button id="fx" type="button" aria-pressed="true">Glow</button>
+  <button id="pace" type="button" aria-pressed="true">Pace: calm</button>
   <button id="paths" type="button" aria-pressed="false">Paths</button>
 </div>
 
@@ -116,6 +117,11 @@ function smooth(pts, sx, sy) {
 
 // ---------- baker ----------
 const baker = { x: 400, y: 340, dir: 0, moving: false, t: 0, path: [], speed: 46 };
+// animation pace: "calm" is slow and rhythmic; walking speed follows the step rate so his feet stay planted
+const PACES = { calm: { walk: 5, idle: 2.2 }, brisk: { walk: 9, idle: 4 } };
+const STRIDE = 46 / 9 * SCALE;          // world pixels covered per walk frame
+let pace = PACES.calm;
+baker.speed = STRIDE * pace.walk;
 function goTo(x, y) {
   const g = nearestOpen(Math.floor(x / G), Math.floor(y / G)), s = nearestOpen(Math.floor(baker.x / G), Math.floor(baker.y / G));
   if (!g || !s) return false;
@@ -154,6 +160,8 @@ const setBtn = (b, on, a, z) => { b.setAttribute('aria-pressed', String(on)); b.
 setBtn(fxBtn, fxOn, 'Glow: on', 'Glow: off');
 fxBtn.addEventListener('click', () => { fxOn = !fxOn; setBtn(fxBtn, fxOn, 'Glow: on', 'Glow: off'); });
 pathBtn.addEventListener('click', () => { showPaths = !showPaths; setBtn(pathBtn, showPaths, 'Paths: on', 'Paths'); });
+const paceBtn = document.getElementById('pace');
+paceBtn.addEventListener('click', () => { pace = pace === PACES.calm ? PACES.brisk : PACES.calm; baker.speed = STRIDE * pace.walk; paceBtn.textContent = pace === PACES.calm ? 'Pace: calm' : 'Pace: brisk'; paceBtn.setAttribute('aria-pressed', String(pace === PACES.calm)); });
 // fit the camera to the screen: the shorter side shows about 300 world pixels, never more than the map
 function fitView() {
   const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
@@ -235,9 +243,9 @@ function update(dt, time) {
 function drawBaker() {
   if (!atlas.naturalWidth) return;
   let sx, sy;
-  if (baker.moving) { sy = (8 + baker.dir) * 80; sx = (Math.floor(baker.t * 9) % 6) * 80; }
+  if (baker.moving) { sy = (8 + baker.dir) * 80; sx = (Math.floor(baker.t * pace.walk) % 6) * 80; }
   else if (baker.dir === 0) { sy = 16 * 80; sx = 0; }
-  else { sy = baker.dir * 80; sx = (Math.floor(baker.t * 4) % 4) * 80; }
+  else { sy = baker.dir * 80; sx = (Math.floor(baker.t * pace.idle) % 4) * 80; }
   ctx.fillStyle = 'rgba(5,6,14,.45)'; ctx.beginPath(); ctx.ellipse(baker.x, baker.y - 1, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
   const S = SCALE * 80;   // drawn larger than the sprite's own 80px for the tavern's scale
   ctx.drawImage(atlas, sx, sy, 80, 80, Math.round(baker.x - S / 2), Math.round(baker.y - FOOT_Y * SCALE), S, S);
