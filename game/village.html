@@ -1,59 +1,57 @@
 <title>Lighthouse Cliffs</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap">
 <style>
-/* Layout: a wide night-time game window, title above, one line of controls below. */
+/* Layout: the game fills the whole screen; a title card fades out and two small buttons float in the top-right corner. */
 :root {
-  --ground: #0c1018;     /* deep night page */
-  --frame: #1b2232;      /* slate frame */
-  --frame-hi: #2d3850;
+  --ground: #05070b;     /* behind the canvas */
+  --panel: rgba(12,16,26,.72);
+  --edge: #2d3850;
   --text: #d9dcea;
   --muted: #8790ab;
   --amber: #f0b45c;      /* lamplight accent */
   --font-display: "Pixelify Sans", ui-monospace, monospace;
   color-scheme: dark;
 }
-body {
-  background: var(--ground); color: var(--text); font-family: var(--font-display); font-size: 16px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 28px;
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--ground); color: var(--text); font-family: var(--font-display); overscroll-behavior: none; }
+canvas#scene {
+  position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block;
+  image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; touch-action: none; background: var(--ground);
 }
-.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 12px; }
-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
-h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.3rem); font-weight: 700; color: var(--amber); text-shadow: 2px 2px 0 #000; text-wrap: balance; }
-.where { margin: 0; color: var(--muted); }
-.frame { background: #05070b; border: 3px solid #000; box-shadow: inset 0 0 0 3px var(--frame-hi), inset 0 0 0 6px #000; padding: 9px; }
-canvas#scene { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; touch-action: manipulation; background: #05070b; }
-canvas#scene:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-.bar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; color: var(--muted); }
-.bar b { color: var(--amber); font-weight: 600; }
-button { font: 600 0.95rem var(--font-display); color: var(--text); background: var(--frame); border: 3px solid #000; box-shadow: inset 0 0 0 2px var(--frame-hi); padding: 6px 12px; cursor: pointer; }
-button:hover { background: var(--frame-hi); }
-button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-button[aria-pressed="false"] { color: var(--muted); }
-kbd { font-size: 0.8rem; background: #000; color: var(--text); padding: 1px 5px; }
+canvas#scene:focus-visible { outline: none; }
+.title {
+  position: fixed; left: calc(14px + env(safe-area-inset-left, 0px)); top: calc(12px + env(safe-area-inset-top, 0px));
+  margin: 0; font-size: clamp(1.3rem, 5vw, 2rem); font-weight: 700; color: var(--amber); text-shadow: 2px 2px 0 #000;
+  pointer-events: none; transition: opacity 1.2s ease 2.5s;
+}
+.title small { display: block; font-size: 0.5em; font-weight: 400; color: var(--text); opacity: .8; }
+.title.gone { opacity: 0; }
+.tools {
+  position: fixed; right: calc(10px + env(safe-area-inset-right, 0px)); top: calc(10px + env(safe-area-inset-top, 0px));
+  display: flex; gap: 6px;
+}
+.tools button {
+  font: 600 0.85rem var(--font-display); color: var(--text); background: var(--panel);
+  border: 2px solid #000; box-shadow: inset 0 0 0 1px var(--edge); padding: 6px 10px; cursor: pointer;
+}
+.tools button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.tools button[aria-pressed="false"] { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .title { transition: none; } }
 </style>
 
-<div class="wrap">
-  <header>
-    <h1>Lighthouse Cliffs</h1>
-    <p class="where">Starter village &middot; night</p>
-  </header>
-  <div class="frame"><canvas id="scene" width="456" height="304" tabindex="0" aria-label="Night-time pixel-art cliff village by a lighthouse. Click or tap a path to walk the baker there."></canvas></div>
-  <div class="bar">
-    <span>Click or tap a path to walk there &middot; <kbd>WASD</kbd> / arrows also work</span>
-    <button id="fx" type="button" aria-pressed="true">Atmosphere: on</button>
-    <button id="paths" type="button" aria-pressed="false">Show walkable paths</button>
-  </div>
+<canvas id="scene" width="456" height="304" tabindex="0" aria-label="Night-time pixel-art cliff village by a lighthouse. Click or tap a path to walk the baker there; WASD or arrow keys also walk him."></canvas>
+<h1 class="title" id="title">Lighthouse Cliffs<small>Tap a path to walk</small></h1>
+<div class="tools">
+  <button id="fx" type="button" aria-pressed="true">Mist</button>
+  <button id="paths" type="button" aria-pressed="false">Paths</button>
 </div>
 
 <script>
 (() => {
 'use strict';
-const VW = 456, VH = 304;                 // camera view in world pixels
+let VW = 456, VH = 304;                   // camera view in world pixels, resized to the screen
 const FOOT_Y = 75;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const cv = document.getElementById('scene'), ctx = cv.getContext('2d');
@@ -71,7 +69,7 @@ const WALK = [
   [[88,226],[140,240],[262,446],[254,480],[226,474]],                                                                     // long stairway down
   [[256,380],[330,346],[392,350],[432,388],[472,420],[504,468],[512,500],[430,512],[300,512],[262,472],[248,440]],          // lower plaza
 ];
-const BLOCK = [[104,196,130,218], [240,246,266,276], [340,396,354,412]]; // bench, barrel, lamppost foot
+const BLOCK = [[104,196,130,218], [240,246,266,276]]; // bench, barrel
 function inPoly(x, y, p) { let c = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) { const [xi, yi] = p[i], [xj, yj] = p[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; }
 const walkable = (x, y) => WALK.some(p => inPoly(x, y, p)) && !BLOCK.some(([a, b, c, d]) => x > a && x < c && y > b && y < d);
 
@@ -147,9 +145,21 @@ addEventListener('blur', () => keys.clear());
 let fxOn = !reduceMotion, showPaths = false;
 const fxBtn = document.getElementById('fx'), pathBtn = document.getElementById('paths');
 const setBtn = (b, on, a, z) => { b.setAttribute('aria-pressed', String(on)); b.textContent = on ? a : z; };
-setBtn(fxBtn, fxOn, 'Atmosphere: on', 'Atmosphere: off');
-fxBtn.addEventListener('click', () => { fxOn = !fxOn; setBtn(fxBtn, fxOn, 'Atmosphere: on', 'Atmosphere: off'); });
-pathBtn.addEventListener('click', () => { showPaths = !showPaths; setBtn(pathBtn, showPaths, 'Hide walkable paths', 'Show walkable paths'); });
+setBtn(fxBtn, fxOn, 'Mist: on', 'Mist: off');
+fxBtn.addEventListener('click', () => { fxOn = !fxOn; setBtn(fxBtn, fxOn, 'Mist: on', 'Mist: off'); });
+pathBtn.addEventListener('click', () => { showPaths = !showPaths; setBtn(pathBtn, showPaths, 'Paths: on', 'Paths'); });
+// fit the camera to the screen: the shorter side shows about 300 world pixels, never more than the map
+function fitView() {
+  const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
+  let k = Math.min(w, h) / 300;
+  let vw = w / k, vh = h / k;
+  const over = Math.max(vw / WW, vh / WH, 1); vw /= over; vh /= over;
+  VW = Math.round(vw); VH = Math.round(vh);
+  cv.width = VW; cv.height = VH; ctx.imageSmoothingEnabled = false;
+  updateCam(0, true);
+}
+addEventListener('resize', fitView);
+setTimeout(() => document.getElementById('title').classList.add('gone'), 50);
 
 // ---------- atmosphere ----------
 // light sources: x, y, radius, colour, flicker strength
@@ -285,7 +295,7 @@ function draw(time) {
 let last = performance.now(), started = false;
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (plate.naturalWidth && !started) { started = true; buildSea(); updateCam(0, true); }
+  if (plate.naturalWidth && !started) { started = true; buildSea(); fitView(); }
   update(dt, now / 1000); draw(now / 1000);
   requestAnimationFrame(frame);
 }

@@ -22,7 +22,7 @@ and inlines it, writing the self-contained `bakehouse.html` (open it directly in
 village section, `maps/lighthouse_village/section_01.png` (512x512, made with PixelLab from a crop of the
 original painting with the baker sprite as the style image).
 
-- Camera shows 456x304 world pixels and follows the baker.
+- Full-screen canvas; the camera shows about 300 world pixels on the shorter screen side (capped at the map size) and follows the baker.
 - Walkable areas are hand-traced polygons (toggle "Show walkable paths"); A* on a 4px grid.
 - Atmosphere (all code, no generations): flickering glow on every lamp and window, rising embers,
   glints moving on the sea, two layers of drifting mist, floating dust motes and a night vignette.
