@@ -32,3 +32,16 @@ original painting with the baker sprite as the style image).
 `tavern.html` (built from `tavern.src.html`) uses `maps/tavern/tavern_688x384.png`. Same controls and camera as the
 village; the baker is drawn at 145% here (`SCALE`) so he reads at the right size next to the stools and tables.
 Atmosphere: fireplace glow and flicker, rising embers, warm dust motes, edge vignette.
+
+# World (village + tavern, connected)
+
+`world.html` (built from `world.src.html`) is the playable game: one engine with a config per scene
+(`SCENES.village`, `SCENES.tavern`) holding the base plate, walkable polygons, blocks, camera framing,
+baker scale, lights, effects and exits.
+
+- Doors: stop at the top of the stairs beside the lighthouse and a prompt offers "Enter the tavern?";
+  in the tavern, the passage in the bottom-right corner offers "Head back out to the cliffs?".
+  Choosing to go fades to black and loads the other scene at the matching spot. "Stay" (or walking off)
+  dismisses it until he steps out of the zone; tapping the door zone again re-offers it.
+- Paths shows walkable areas (green), blocks (red) and door zones (gold). Pace toggles calm/brisk.
+- `window.__game.state()` exposes a read-only snapshot for automated checks.
