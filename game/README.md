@@ -25,4 +25,4 @@ original painting with the baker sprite as the style image).
 - Full-screen canvas; the camera shows about 300 world pixels on the shorter screen side (capped at the map size) and follows the baker.
 - Walkable areas are hand-traced polygons (toggle "Show walkable paths"); A* on a 4px grid.
 - Atmosphere (all code, no generations): flickering glow on every lamp and window, rising embers,
-  glints moving on the sea, two layers of drifting mist, floating dust motes and a night vignette.
+  glints moving on the sea, two layers of drifting mist, and floating dust motes.

@@ -287,10 +287,7 @@ function draw(time) {
     for (let i = -s; i <= s; i++) { ctx.fillRect(Math.round(marker.x + i), Math.round(marker.y + i), 1, 1); ctx.fillRect(Math.round(marker.x + i), Math.round(marker.y - i), 1, 1); }
   }
 
-  // night vignette in screen space
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const v = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.35, VW / 2, VH / 2, VW * 0.65);
-  v.addColorStop(0, 'rgba(0,0,10,0)'); v.addColorStop(1, 'rgba(0,0,10,.5)'); ctx.fillStyle = v; ctx.fillRect(0, 0, VW, VH);
 }
 
 let last = performance.now(), started = false;
