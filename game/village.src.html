@@ -287,7 +287,11 @@ function draw(time) {
     for (let i = -s; i <= s; i++) { ctx.fillRect(Math.round(marker.x + i), Math.round(marker.y + i), 1, 1); ctx.fillRect(Math.round(marker.x + i), Math.round(marker.y - i), 1, 1); }
   }
 
+  // vignette: clear around the baker, darker toward the screen edges (sized from the diagonal so it works in any orientation)
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const outer = Math.hypot(VW, VH) / 2, inner = outer * 0.5;
+  const v = ctx.createRadialGradient(VW / 2, VH / 2, inner, VW / 2, VH / 2, outer);
+  v.addColorStop(0, 'rgba(0,0,10,0)'); v.addColorStop(1, 'rgba(0,0,10,.55)'); ctx.fillStyle = v; ctx.fillRect(0, 0, VW, VH);
 }
 
 let last = performance.now(), started = false;
