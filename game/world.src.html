@@ -46,16 +46,18 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .prompt .go { color: var(--amber); }
 .talk {
   position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
-  width: min(620px, calc(100vw - 24px)); background: var(--panel); border: 2px solid #000;
-  box-shadow: inset 0 0 0 1px var(--edge), 0 6px 24px rgba(0,0,0,.5); padding: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start;
+  width: min(620px, calc(100vw - 24px)); background: var(--panel); border: 2px solid #000; cursor: pointer; user-select: none;
+  box-shadow: inset 0 0 0 1px var(--edge), 0 6px 24px rgba(0,0,0,.5); padding: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center;
 }
 .talk[hidden] { display: none; }
-.talk canvas { width: 72px; height: 72px; image-rendering: pixelated; background: rgba(0,0,0,.35); border: 1px solid var(--edge); }
+.talk.right { grid-template-columns: minmax(0, 1fr) auto; }
+.talk.right canvas { order: 2; }
+.talk.right .body { text-align: right; }
+.talk:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.talk canvas { width: 96px; height: 108px; image-rendering: pixelated; }
 .talk .who { margin: 0 0 4px; color: var(--amber); font-weight: 700; font-size: 1rem; }
-.talk .line { margin: 0 0 10px; font-size: 1.05rem; line-height: 1.35; }
-.talk ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.talk ol button { width: 100%; text-align: left; font-weight: 400; }
-.talk ol button b { color: var(--amber); font-weight: 600; margin-right: 6px; }
+.talk .line { margin: 0 0 8px; font-size: 1.1rem; line-height: 1.35; min-height: 2.7em; }
+.talk .next { margin: 0; color: var(--muted); font-size: 0.85rem; }
 @media (prefers-reduced-motion: reduce) { .title.fade { transition: none; } }
 </style>
 
@@ -66,9 +68,9 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   <button id="pace" type="button" aria-pressed="true">Pace: calm</button>
   <button id="paths" type="button" aria-pressed="false">Paths</button>
 </div>
-<div class="talk" id="talk" role="dialog" aria-live="polite" aria-labelledby="talkWho" hidden>
-  <canvas id="talkFace" width="80" height="80" aria-hidden="true"></canvas>
-  <div><p class="who" id="talkWho"></p><p class="line" id="talkLine"></p><ol id="talkOpts"></ol></div>
+<div class="talk" id="talk" role="dialog" aria-live="polite" aria-labelledby="talkWho" tabindex="0" hidden>
+  <canvas id="talkFace" width="96" height="108" aria-hidden="true"></canvas>
+  <div class="body"><p class="who" id="talkWho"></p><p class="line" id="talkLine"></p><p class="next" id="talkNext">Click to continue</p></div>
 </div>
 <div class="prompt" id="prompt" role="dialog" aria-live="polite" hidden>
   <p id="promptText">Enter the <b>tavern</b>?</p>
@@ -85,7 +87,12 @@ ctx.imageSmoothingEnabled = false;
 const load = (s) => { const i = new Image(); i.src = s; return i; };
 const atlas = load('__ATLAS__');
 // other characters: same 80px cell atlas layout as the baker (idle rows 0-7, walk 8-15, still poses row 16)
-const CAST = { mechanic: { atlas: load('__MECH_ATLAS__'), footY: __MECH_FOOT_Y__ } };
+const CAST = {
+  mechanic: { atlas: load('__MECH_ATLAS__'), footY: __MECH_FOOT_Y__,
+              head: { x: 26, y: 0, w: 28, h: 34, mouth: [38, 25, 5, 2], eyes: [[35, 17, 3, 1], [43, 17, 3, 1]], skin: [39, 13] } },
+  baker:    { atlas, footY: FOOT_Y, name: 'Halvard',
+              head: { x: 24, y: 0, w: 32, h: 36, mouth: [39, 27, 4, 1], eyes: null } },
+};
 
 // ---------- scenes ----------
 // walk: polygons the baker's feet may stand in; block: rectangles cut out of them; exits: zones that offer a door
@@ -142,24 +149,14 @@ const SCENES = {
 };
 
 // ---------- dialogue ----------
-// each node: what the speaker says, and the replies; a reply with no "next" ends the talk
-const MENU = [
-  { say: "What's good to drink?", next: 'drink' },
-  { say: 'What happened to your leg?', next: 'leg' },
-  { say: 'Heard any news?', next: 'news' },
-  { say: "I've brought the bread.", next: 'bread' },
-  { say: 'Nothing, thanks.', next: 'bye' },
-];
+// each conversation is a list of [speaker, line]; 'npc' is whoever was clicked, 'me' is the baker
 const TALKS = {
-  barkeep: {
-    start: { line: "Evening. Boots off the bar, and mind the stools. What'll it be?", opts: MENU },
-    drink: { line: "Lighthouse stout. Dark as the cliffs at midnight and twice as bitter. The keeper swears by it.", opts: [{ say: 'Something else...', next: 'more' }] },
-    leg:   { line: "Lost the old one to a winch on the docks, twenty winters back. Built this one myself. Squeaks when it rains, so I always know before the gulls do.", opts: [{ say: 'Something else...', next: 'more' }] },
-    news:  { line: "Lantern on the tower's been flickering. Keeper says it's the wind. I say something's been nesting up there.", opts: [{ say: 'Something else...', next: 'more' }] },
-    bread: { line: "About time, Halvard. Leave it on the end there. The regulars have been eyeing the pickled eggs.", opts: [{ say: 'Something else...', next: 'more' }] },
-    more:  { line: 'Anything else?', opts: MENU },
-    bye:   { line: 'Suit yourself. Fire stays lit till the last one leaves.', opts: [] },
-  },
+  barkeep: [
+    [['npc', 'Evening. Boots off the bar, and mind the stools.'], ['me', "Brought the morning's bread, Rusk."], ['npc', 'About time. The regulars have been eyeing the pickled eggs.'], ['npc', "Leave it on the end there. I'll put it on your tab."]],
+    [['npc', "Lantern on the tower's been flickering again."], ['me', "Keeper says it's the wind."], ['npc', "Keeper says a lot of things. Something's been nesting up there, mark me."]],
+    [['me', "How's the leg?"], ['npc', 'Squeaks when it rains, so I always know before the gulls do.'], ['npc', 'Lost the old one to a winch on the docks, twenty winters back. Built this one myself.']],
+    [['npc', "Lighthouse stout's fresh tonight. Dark as the cliffs at midnight and twice as bitter."], ['me', 'Pour me half.'], ['npc', "Half's for sailors. You'll have a whole one, or you'll have tea."]],
+  ],
 };
 
 let S = null, WW = 0, WH = 0, VW = 456, VH = 304;
@@ -304,31 +301,61 @@ cv.addEventListener('pointermove', (e) => {
   const x = (e.clientX - rc.left) * VW / rc.width + Math.round(cam.x), y = (e.clientY - rc.top) * VH / rc.height + Math.round(cam.y);
   cv.style.cursor = npcAt(x, y) ? 'pointer' : 'crosshair';
 });
-const talkEl = document.getElementById('talk'), talkWho = document.getElementById('talkWho'), talkLine = document.getElementById('talkLine'), talkOpts = document.getElementById('talkOpts');
-const faceCtx = document.getElementById('talkFace').getContext('2d');
+const talkEl = document.getElementById('talk'), talkWho = document.getElementById('talkWho'), talkLine = document.getElementById('talkLine'), talkNext = document.getElementById('talkNext');
+const face = document.getElementById('talkFace').getContext('2d');
 let talking = null, talkTarget = null;
-function startTalk(n) { talking = n; talkTarget = null; baker.dir = dirFrom(n.x - baker.x, n.y - baker.y); showNode('start'); }
-function showNode(key) {
-  const node = TALKS[talking.talk][key];
-  talkWho.textContent = talking.name; talkLine.textContent = node.line; talkOpts.innerHTML = '';
-  const opts = node.opts.length ? node.opts : [{ say: 'Leave' }];
-  opts.forEach((o, i) => {
-    const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button';
-    b.innerHTML = `<b>${i + 1}.</b>`; b.append(o.say);
-    b.addEventListener('click', () => o.next ? showNode(o.next) : closeTalk());
-    li.append(b); talkOpts.append(li);
-  });
-  const c = CAST[talking.who]; faceCtx.clearRect(0, 0, 80, 80); faceCtx.imageSmoothingEnabled = false;
-  if (c.atlas.naturalWidth) faceCtx.drawImage(c.atlas, 0, 16 * 80, 80, 80, 0, 6, 80, 80);   // still front pose as the portrait
-  talkEl.hidden = false; talkOpts.querySelector('button').focus({ preventScroll: true });
+// talk state: the conversation, which line, how many letters are shown, and a clock for the face
+const chat = { lines: [], i: 0, shown: 0, t: 0, blink: 2 };
+function startTalk(n) {
+  talking = n; talkTarget = null; baker.dir = dirFrom(n.x - baker.x, n.y - baker.y);
+  const convos = TALKS[n.talk]; n.convo = ((n.convo ?? -1) + 1) % convos.length;
+  chat.lines = convos[n.convo]; chat.i = 0; showLine();
+  talkEl.hidden = false; talkEl.focus({ preventScroll: true });
+}
+function showLine() {
+  const [who] = chat.lines[chat.i]; chat.shown = 0; chat.t = 0;
+  talkWho.textContent = who === 'me' ? CAST.baker.name : talking.name;
+  talkEl.classList.toggle('right', who === 'me');
+  talkNext.textContent = chat.i === chat.lines.length - 1 ? 'Click to finish' : 'Click to continue';
+}
+function advance() {
+  const text = chat.lines[chat.i][1];
+  if (chat.shown < text.length) { chat.shown = text.length; return; }   // first click finishes the line
+  if (++chat.i >= chat.lines.length) { closeTalk(); return; }
+  showLine();
 }
 function closeTalk() { talking = null; talkEl.hidden = true; cv.focus({ preventScroll: true }); }
+talkEl.addEventListener('click', advance);
 addEventListener('keydown', (e) => {
   if (!talking) return;
-  if (e.key === 'Escape') { e.preventDefault(); closeTalk(); return; }
-  const i = parseInt(e.key, 10); const bs = talkOpts.querySelectorAll('button');
-  if (i >= 1 && i <= bs.length) { e.preventDefault(); bs[i - 1].click(); }
+  if (e.key === 'Escape') { e.preventDefault(); closeTalk(); }
+  else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance(); }
 });
+// skin colour under each character's eyes, read once from the sprite for blinking
+const skinOf = (c) => {
+  if (c.skinRGB || !c.head.skin || !c.atlas.naturalWidth) return c.skinRGB;
+  const t = document.createElement('canvas'); t.width = t.height = 80; const g = t.getContext('2d', { willReadFrequently: true });
+  g.drawImage(c.atlas, 0, 16 * 80, 80, 80, 0, 0, 80, 80); const d = g.getImageData(c.head.skin[0], c.head.skin[1], 1, 1).data;
+  return (c.skinRGB = `rgb(${d[0]},${d[1]},${d[2]})`);
+};
+// RuneScape-style chathead: an enlarged close-up that bobs, moves its mouth while the line types out, and blinks
+function updateChat(dt) {
+  if (!talking) return;
+  chat.t += dt; chat.blink -= dt; if (chat.blink < -0.12) chat.blink = 2 + Math.random() * 3;
+  const [who, text] = chat.lines[chat.i];
+  const typing = chat.shown < text.length;
+  if (typing) chat.shown = Math.min(text.length, chat.shown + dt * 40);
+  talkLine.textContent = text.slice(0, Math.floor(chat.shown));
+  const c = who === 'me' ? CAST.baker : CAST[talking.who], h = c.head;
+  const K = 3, bob = Math.round(Math.sin(chat.t * (typing ? 9 : 2.4)) * (typing ? 1 : 0.6));
+  const ox = Math.round((96 - h.w * K) / 2), oy = 108 - h.h * K + bob * K;
+  face.clearRect(0, 0, 96, 108); face.imageSmoothingEnabled = false;
+  if (!c.atlas.naturalWidth) return;
+  face.drawImage(c.atlas, h.x, 16 * 80 + h.y, h.w, h.h, ox, oy, h.w * K, h.h * K);
+  const px = (x, y, w, hh, col) => { face.fillStyle = col; face.fillRect(ox + (x - h.x) * K, oy + (y - h.y) * K, w * K, hh * K); };
+  if (typing && Math.floor(chat.t / 0.11) % 2 === 0) { const [mx, my, mw, mh] = h.mouth; px(mx, my, mw, mh, '#2a1410'); }
+  if (h.eyes && chat.blink < 0) { const col = skinOf(c); if (col) for (const [ex, ey, ew, eh] of h.eyes) px(ex, ey, ew, eh, col); }
+}
 const keys = new Set(), KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
 addEventListener('keydown', (e) => { const k = KEYMAP[e.code]; if (!k || e.target.tagName === 'BUTTON' || offer) return; if (talking) closeTalk(); talkTarget = null; keys.add(k); e.preventDefault(); });
 addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
@@ -406,6 +433,7 @@ function update(dt) {
   else if (!baker.moving && armed && !offer && !fadeDir) openPrompt(ex);
 
   for (const n of (S.npcs || [])) n.t += dt;
+  updateChat(dt);
   updateCam(dt);
   if (marker) { marker.t += dt; if (marker.t > 0.7) marker = null; }
   if (fxOn) {
