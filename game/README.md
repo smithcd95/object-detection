@@ -45,3 +45,6 @@ baker scale, lights, effects and exits.
   dismisses it until he steps out of the zone; tapping the door zone again re-offers it.
 - Paths shows walkable areas (green), blocks (red) and door zones (gold). Pace toggles calm/brisk.
 - `window.__game.state()` exposes a read-only snapshot for automated checks.
+- Characters: `SCENES.*.npcs` places other characters (atlas built by `build_atlas` in `build.py`). The Old Mechanic
+  stands behind the tavern bar as the barkeep, breathes at the current pace and turns to face the baker when he is near.
+  `fronts` are cut-out layers (`maps/tavern/front_bar.png`, the counter) drawn over characters standing behind them.

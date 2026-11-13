@@ -6,4 +6,5 @@ pixel style, outline, shading and scale. Character id: 9fc8dc6d-3ba1-4870-81af-c
 
 - `rotations/`: static pose for each of the 8 directions.
 - `previews/rotations_vs_baker.png`: all 8 directions (top) next to the baker (bottom).
-No animations yet.
+- `animations/idle` (4 frames) and `animations/walk` (6 frames) for all 8 directions, from the same templates as the baker.
+- `previews/idle.png`, `previews/walk.png`: contact sheets (rows S, SE, E, NE, N, NW, W, SW).

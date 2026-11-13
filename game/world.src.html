@@ -68,6 +68,8 @@ const cv = document.getElementById('scene'), ctx = cv.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 const load = (s) => { const i = new Image(); i.src = s; return i; };
 const atlas = load('__ATLAS__');
+// other characters: same 80px cell atlas layout as the baker (idle rows 0-7, walk 8-15, still poses row 16)
+const CAST = { mechanic: { atlas: load('__MECH_ATLAS__'), footY: __MECH_FOOT_Y__ } };
 
 // ---------- scenes ----------
 // walk: polygons the baker's feet may stand in; block: rectangles cut out of them; exits: zones that offer a door
@@ -113,6 +115,8 @@ const SCENES = {
       [266,238,284,254], [291,251,309,267], [318,265,336,281], [346,281,364,297], // bar stools
       [350,336,432,372],                                                 // table and chair by the entrance
     ],
+    npcs: [{ who: 'mechanic', x: 340, y: 236, dir: 1, behind: true, t: 0 }],   // the barkeep, standing behind the counter
+    fronts: [{ img: load('__BAR_FRONT__'), x: 268, y: 190 }],                  // the counter, drawn over anyone behind it
     exits: [{ zone: [402,382,458,414], ask: 'Head back out to the <b>cliffs</b>?', yes: 'Leave', to: 'village', at: { x: 270, y: 194, dir: 1 } }],
     lights: [
       [148, 228, 40, '255,150,50', 1], [160, 252, 110, '255,130,40', .8], [138, 190, 14, '255,190,110', .5], [330, 240, 40, '255,180,90', .4],
@@ -312,6 +316,7 @@ function update(dt) {
   if (!ex) { armed = true; if (offer) closePrompt(); }
   else if (!baker.moving && armed && !offer && !fadeDir) openPrompt(ex);
 
+  for (const n of (S.npcs || [])) n.t += dt;
   updateCam(dt);
   if (marker) { marker.t += dt; if (marker.t > 0.7) marker = null; }
   if (fxOn) {
@@ -336,6 +341,15 @@ function drawBaker() {
   ctx.fillStyle = 'rgba(5,6,14,.45)'; ctx.beginPath(); ctx.ellipse(baker.x, baker.y - 1, 15 * k, 4 * k, 0, 0, Math.PI * 2); ctx.fill();
   ctx.drawImage(atlas, sx, sy, 80, 80, Math.round(baker.x - size / 2), Math.round(baker.y - FOOT_Y * k), size, size);
 }
+// a standing character: breathes in place and turns to face the baker when he comes close
+function drawNpc(n) {
+  const c = CAST[n.who]; if (!c || !c.atlas.naturalWidth) return;
+  const near = Math.hypot(baker.x - n.x, baker.y - n.y) < 150;
+  const dir = near ? dirFrom(baker.x - n.x, baker.y - n.y) : n.dir;
+  const sy = dir * 80, sx = (Math.floor(n.t * pace.idle) % 4) * 80, k = S.scale, size = 80 * k;
+  if (!n.behind) { ctx.fillStyle = 'rgba(5,6,14,.45)'; ctx.beginPath(); ctx.ellipse(n.x, n.y - 1, 15 * k, 4 * k, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.drawImage(c.atlas, sx, sy, 80, 80, Math.round(n.x - size / 2), Math.round(n.y - c.footY * k), size, size);
+}
 function glow(x, y, r, a, rgb) {
   const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
   ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
@@ -354,7 +368,11 @@ function draw(time) {
     ctx.globalCompositeOperation = 'lighter'; glow(cx, cy, 16 + pulse * 4, 0.10 + pulse * 0.08, '255,210,120'); ctx.globalCompositeOperation = 'source-over';
   }
 
-  drawBaker();
+  const npcs = S.npcs || [];
+  for (const n of npcs) if (n.behind) drawNpc(n);
+  for (const f of (S.fronts || [])) if (f.img.naturalWidth) ctx.drawImage(f.img, f.x, f.y);
+  const layer = [{ y: baker.y, d: drawBaker }, ...npcs.filter(n => !n.behind).map(n => ({ y: n.y, d: () => drawNpc(n) }))];
+  layer.sort((a, b) => a.y - b.y).forEach(o => o.d());
 
   if (fxOn) {
     ctx.globalCompositeOperation = 'lighter';

@@ -70,3 +70,25 @@ wout = (wsrc.replace("__ATLAS__", uri).replace("__FOOT_Y__", str(foot_y))
         .replace("__TAVERN__", data_uri(os.path.join(HERE, "maps", "tavern", "tavern_full_560x448.png"))))
 open(os.path.join(HERE, "world.html"), "w", encoding="utf-8").write(wout)
 print("world.html written")
+
+
+# ---- characters other than the baker, packed with the same atlas layout ----
+def build_atlas(spr):
+    a = Image.new("RGBA", (C * 8, C * 17), (0, 0, 0, 0))
+    for i, d in enumerate(DIRS):
+        for row0, anim in ((0, "idle"), (8, "walk")):
+            folder = os.path.join(spr, "animations", anim, d)
+            if os.path.isdir(folder):
+                for j, f in enumerate(sorted(os.listdir(folder))):
+                    a.paste(Image.open(os.path.join(folder, f)).convert("RGBA"), (j * C, (row0 + i) * C))
+        a.paste(Image.open(os.path.join(spr, "rotations", d + ".png")).convert("RGBA"), (i * C, 16 * C))
+    fy = Image.open(os.path.join(spr, "rotations", "south.png")).convert("RGBA").getchannel("A").getbbox()[3]
+    b = io.BytesIO(); a.save(b, "PNG", optimize=True)
+    return "data:image/png;base64," + base64.b64encode(b.getvalue()).decode(), fy
+
+mech_uri, mech_foot = build_atlas(os.path.join(HERE, "..", "sprites", "old_mechanic"))
+w = open(os.path.join(HERE, "world.html"), encoding="utf-8").read()
+w = (w.replace("__MECH_ATLAS__", mech_uri).replace("__MECH_FOOT_Y__", str(mech_foot))
+      .replace("__BAR_FRONT__", data_uri(os.path.join(HERE, "maps", "tavern", "front_bar.png"))))
+open(os.path.join(HERE, "world.html"), "w", encoding="utf-8").write(w)
+print("world.html: mechanic + bar front added, mechanic foot", mech_foot)
