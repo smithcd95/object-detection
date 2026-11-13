@@ -44,6 +44,18 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .prompt p b { color: var(--amber); font-weight: 600; }
 .prompt .row { display: flex; gap: 8px; justify-content: center; }
 .prompt .go { color: var(--amber); }
+.talk {
+  position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  width: min(620px, calc(100vw - 24px)); background: var(--panel); border: 2px solid #000;
+  box-shadow: inset 0 0 0 1px var(--edge), 0 6px 24px rgba(0,0,0,.5); padding: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start;
+}
+.talk[hidden] { display: none; }
+.talk canvas { width: 72px; height: 72px; image-rendering: pixelated; background: rgba(0,0,0,.35); border: 1px solid var(--edge); }
+.talk .who { margin: 0 0 4px; color: var(--amber); font-weight: 700; font-size: 1rem; }
+.talk .line { margin: 0 0 10px; font-size: 1.05rem; line-height: 1.35; }
+.talk ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.talk ol button { width: 100%; text-align: left; font-weight: 400; }
+.talk ol button b { color: var(--amber); font-weight: 600; margin-right: 6px; }
 @media (prefers-reduced-motion: reduce) { .title.fade { transition: none; } }
 </style>
 
@@ -53,6 +65,10 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   <button id="fx" type="button" aria-pressed="true">Effects: on</button>
   <button id="pace" type="button" aria-pressed="true">Pace: calm</button>
   <button id="paths" type="button" aria-pressed="false">Paths</button>
+</div>
+<div class="talk" id="talk" role="dialog" aria-live="polite" aria-labelledby="talkWho" hidden>
+  <canvas id="talkFace" width="80" height="80" aria-hidden="true"></canvas>
+  <div><p class="who" id="talkWho"></p><p class="line" id="talkLine"></p><ol id="talkOpts"></ol></div>
 </div>
 <div class="prompt" id="prompt" role="dialog" aria-live="polite" hidden>
   <p id="promptText">Enter the <b>tavern</b>?</p>
@@ -115,13 +131,34 @@ const SCENES = {
       [266,238,284,254], [291,251,309,267], [318,265,336,281], [346,281,364,297], // bar stools
       [350,336,432,372],                                                 // table and chair by the entrance
     ],
-    npcs: [{ who: 'mechanic', x: 340, y: 236, dir: 1, behind: true, t: 0 }],   // the barkeep, standing behind the counter
+    npcs: [{ who: 'mechanic', name: 'Rusk, the barkeep', x: 340, y: 236, dir: 1, behind: true, t: 0, talkAt: { x: 313, y: 262 }, talk: 'barkeep' }],   // standing behind the counter
     fronts: [{ img: load('__BAR_FRONT__'), x: 268, y: 190 }],                  // the counter, drawn over anyone behind it
     exits: [{ zone: [402,382,458,414], ask: 'Head back out to the <b>cliffs</b>?', yes: 'Leave', to: 'village', at: { x: 270, y: 194, dir: 1 } }],
     lights: [
       [148, 228, 40, '255,150,50', 1], [160, 252, 110, '255,130,40', .8], [138, 190, 14, '255,190,110', .5], [330, 240, 40, '255,180,90', .4],
     ],
     fx: { sea: false, mist: false, embers: 'fire', emberRate: 9, emberSpread: 14, mote: '255,225,180', motes: 50 },
+  },
+};
+
+// ---------- dialogue ----------
+// each node: what the speaker says, and the replies; a reply with no "next" ends the talk
+const MENU = [
+  { say: "What's good to drink?", next: 'drink' },
+  { say: 'What happened to your leg?', next: 'leg' },
+  { say: 'Heard any news?', next: 'news' },
+  { say: "I've brought the bread.", next: 'bread' },
+  { say: 'Nothing, thanks.', next: 'bye' },
+];
+const TALKS = {
+  barkeep: {
+    start: { line: "Evening. Boots off the bar, and mind the stools. What'll it be?", opts: MENU },
+    drink: { line: "Lighthouse stout. Dark as the cliffs at midnight and twice as bitter. The keeper swears by it.", opts: [{ say: 'Something else...', next: 'more' }] },
+    leg:   { line: "Lost the old one to a winch on the docks, twenty winters back. Built this one myself. Squeaks when it rains, so I always know before the gulls do.", opts: [{ say: 'Something else...', next: 'more' }] },
+    news:  { line: "Lantern on the tower's been flickering. Keeper says it's the wind. I say something's been nesting up there.", opts: [{ say: 'Something else...', next: 'more' }] },
+    bread: { line: "About time, Halvard. Leave it on the end there. The regulars have been eyeing the pickled eggs.", opts: [{ say: 'Something else...', next: 'more' }] },
+    more:  { line: 'Anything else?', opts: MENU },
+    bye:   { line: 'Suit yourself. Fire stays lit till the last one leaves.', opts: [] },
   },
 };
 
@@ -168,9 +205,10 @@ function smooth(pts, sx, sy) {
 // ---------- baker ----------
 const baker = { x: 0, y: 0, dir: 0, moving: false, t: 0, path: [], speed: 0 };
 // animation pace: "calm" is slow and rhythmic; walking speed follows the step rate so his feet stay planted
-const PACES = { calm: { walk: 5, idle: 2.2 }, brisk: { walk: 9, idle: 4 } };
+// speed in world pixels per second at 100% size: ~60 is about RuneScape's walk (one tile per 0.6s game tick)
+const PACES = { calm: { walk: 7, idle: 2.2, speed: 60 }, brisk: { walk: 10, idle: 4, speed: 92 } };
 let pace = PACES.calm;
-const setSpeed = () => { baker.speed = 46 / 9 * S.scale * pace.walk; };
+const setSpeed = () => { baker.speed = pace.speed * S.scale; };
 function goTo(x, y) {
   const g = nearestOpen(Math.floor(x / G), Math.floor(y / G)), s = nearestOpen(Math.floor(baker.x / G), Math.floor(baker.y / G));
   if (!g || !s) return false;
@@ -238,12 +276,61 @@ cv.addEventListener('pointerdown', (e) => {
   if (offer) { closePrompt(); armed = false; }
   const rc = cv.getBoundingClientRect();
   const x = (e.clientX - rc.left) * VW / rc.width + Math.round(cam.x), y = (e.clientY - rc.top) * VH / rc.height + Math.round(cam.y);
+  if (talking) closeTalk();
+  const n = npcAt(x, y);
+  if (n) {                              // clicked a character: walk up to them, then talk
+    talkTarget = n;
+    const spot = n.talkAt || { x: n.x, y: n.y + 20 };
+    if (Math.hypot(baker.x - spot.x, baker.y - spot.y) < 6) { baker.path = []; startTalk(n); }
+    else goTo(spot.x, spot.y);
+    return;
+  }
+  talkTarget = null;
   const ok = goTo(x, y); marker = { x, y, t: 0, ok };
   // tapping the door zone itself means "I want to go through": re-arm the prompt
   if (exitAt(x, y)) armed = true;
 });
+// hit test against a character's drawn body
+function npcAt(x, y) {
+  for (const n of (S.npcs || [])) {
+    const c = CAST[n.who]; if (!c || !n.talk) continue;
+    const k = S.scale, top = n.y - c.footY * k + 8 * k;
+    if (x > n.x - 18 * k && x < n.x + 18 * k && y > top && y < n.y) return n;
+  }
+  return null;
+}
+cv.addEventListener('pointermove', (e) => {
+  if (!S) return; const rc = cv.getBoundingClientRect();
+  const x = (e.clientX - rc.left) * VW / rc.width + Math.round(cam.x), y = (e.clientY - rc.top) * VH / rc.height + Math.round(cam.y);
+  cv.style.cursor = npcAt(x, y) ? 'pointer' : 'crosshair';
+});
+const talkEl = document.getElementById('talk'), talkWho = document.getElementById('talkWho'), talkLine = document.getElementById('talkLine'), talkOpts = document.getElementById('talkOpts');
+const faceCtx = document.getElementById('talkFace').getContext('2d');
+let talking = null, talkTarget = null;
+function startTalk(n) { talking = n; talkTarget = null; baker.dir = dirFrom(n.x - baker.x, n.y - baker.y); showNode('start'); }
+function showNode(key) {
+  const node = TALKS[talking.talk][key];
+  talkWho.textContent = talking.name; talkLine.textContent = node.line; talkOpts.innerHTML = '';
+  const opts = node.opts.length ? node.opts : [{ say: 'Leave' }];
+  opts.forEach((o, i) => {
+    const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = `<b>${i + 1}.</b>`; b.append(o.say);
+    b.addEventListener('click', () => o.next ? showNode(o.next) : closeTalk());
+    li.append(b); talkOpts.append(li);
+  });
+  const c = CAST[talking.who]; faceCtx.clearRect(0, 0, 80, 80); faceCtx.imageSmoothingEnabled = false;
+  if (c.atlas.naturalWidth) faceCtx.drawImage(c.atlas, 0, 16 * 80, 80, 80, 0, 6, 80, 80);   // still front pose as the portrait
+  talkEl.hidden = false; talkOpts.querySelector('button').focus({ preventScroll: true });
+}
+function closeTalk() { talking = null; talkEl.hidden = true; cv.focus({ preventScroll: true }); }
+addEventListener('keydown', (e) => {
+  if (!talking) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeTalk(); return; }
+  const i = parseInt(e.key, 10); const bs = talkOpts.querySelectorAll('button');
+  if (i >= 1 && i <= bs.length) { e.preventDefault(); bs[i - 1].click(); }
+});
 const keys = new Set(), KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
-addEventListener('keydown', (e) => { const k = KEYMAP[e.code]; if (!k || e.target.tagName === 'BUTTON' || offer) return; keys.add(k); e.preventDefault(); });
+addEventListener('keydown', (e) => { const k = KEYMAP[e.code]; if (!k || e.target.tagName === 'BUTTON' || offer) return; if (talking) closeTalk(); talkTarget = null; keys.add(k); e.preventDefault(); });
 addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
 addEventListener('blur', () => keys.clear());
 
@@ -279,6 +366,7 @@ const mistA = makeMist(128, 11), mistB = makeMist(128, 97);
 
 // ---------- scene switching ----------
 function enterScene(name, at) {
+  if (talking) closeTalk(); talkTarget = null;
   S = SCENES[name]; WW = S.w; WH = S.h;
   GC = WW / G; GR = WH / G; okCache = new Uint8Array(GC * GR);
   for (let r = 0; r < GR; r++) for (let c = 0; c < GC; c++) okCache[r * GC + c] = walkable(c * G + 2, r * G + 2) ? 1 : 0;
@@ -312,6 +400,7 @@ function update(dt) {
   } else baker.moving = false;
 
   // door zones: offer the door once he stops inside one; leaving the zone re-arms it
+  if (talkTarget && !baker.moving && !baker.path.length) startTalk(talkTarget);
   const ex = exitAt(baker.x, baker.y);
   if (!ex) { armed = true; if (offer) closePrompt(); }
   else if (!baker.moving && armed && !offer && !fadeDir) openPrompt(ex);
@@ -416,7 +505,7 @@ function draw(time) {
 }
 
 // read-only peek at the game state, used by automated checks
-window.__game = { state: () => S && ({ scene: S.title, x: baker.x, y: baker.y, camX: cam.x, camY: cam.y, VW, VH, prompt: !promptEl.hidden, fading: fadeDir !== 0 }) };
+window.__game = { state: () => S && ({ scene: S.title, x: baker.x, y: baker.y, camX: cam.x, camY: cam.y, VW, VH, prompt: !promptEl.hidden, talk: talking ? talkLine.textContent : null, speed: baker.speed, fading: fadeDir !== 0 }) };
 
 let last = performance.now(), started = false;
 function frame(now) {

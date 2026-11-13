@@ -48,3 +48,7 @@ baker scale, lights, effects and exits.
 - Characters: `SCENES.*.npcs` places other characters (atlas built by `build_atlas` in `build.py`). The Old Mechanic
   stands behind the tavern bar as the barkeep, breathes at the current pace and turns to face the baker when he is near.
   `fronts` are cut-out layers (`maps/tavern/front_bar.png`, the counter) drawn over characters standing behind them.
+- Walking speed: calm = 60 world px/s at 100% size (about RuneScape's one tile per 0.6s tick), legs at 7 frames/s;
+  brisk = 92 px/s at 10 frames/s. Scaled by the scene's `scale`.
+- Talking: clicking a character with a `talk` key walks the baker to its `talkAt` spot and opens a dialogue box
+  (portrait, name, line, numbered replies; keys 1-9 pick, Esc closes). Dialogue trees live in `TALKS`.
