@@ -86,7 +86,7 @@ const SCENES = {
       [[256,380],[330,346],[392,350],[432,388],[472,420],[504,468],[512,500],[430,512],[300,512],[262,472],[248,440]],          // lower plaza
     ],
     block: [[104,196,130,218], [240,246,266,276]], // bench, barrel
-    exits: [{ zone: [228,148,274,186], ask: 'Enter the <b>tavern</b>?', yes: 'Enter', to: 'tavern', at: { x: 656, y: 344, dir: 5 } }],
+    exits: [{ zone: [228,148,274,186], ask: 'Enter the <b>tavern</b>?', yes: 'Enter', to: 'tavern', at: { x: 420, y: 378, dir: 5 } }],
     lights: [
       [120, 101, 34, '255,170,80', 1], [145, 103, 34, '255,170,80', 1],
       [186, 45, 26, '255,190,100', .5], [180, 112, 30, '255,180,90', .6],
@@ -99,22 +99,25 @@ const SCENES = {
   },
   tavern: {
     title: 'The Tavern', hint: 'Tap the floor to walk',
-    plate: load('__TAVERN__'), w: 688, h: 384, scale: 1.45,
-    view: { portrait: 360, landscape: 380, letterbox: true },
-    spawn: { x: 400, y: 340, dir: 0 },
+    plate: load('__TAVERN__'), w: 560, h: 448, scale: 1,
+    view: { portrait: 300, landscape: 340, letterbox: true },
+    spawn: { x: 300, y: 300, dir: 0 },
     walk: [
-      [[30,258],[95,246],[165,242],[215,230],[262,224],[300,230],[334,247],[545,343],[548,322],[600,322],[628,318],[662,318],[688,300],[688,384],[0,384],[0,300]],
+      [[80,262],[150,238],[205,232],[255,222],[272,236],[415,312],[440,300],[470,318],[470,350],[455,410],[420,420],[345,385],[290,360],[195,392],[80,300]],
     ],
     block: [
-      [0,236,62,300], [88,272,190,325], [195,255,245,305], [70,305,112,350], [205,345,312,384],        // firewood, tables, chairs
-      [318,228,346,248], [356,256,386,278], [401,282,430,304], [446,308,476,330],                      // bar stools
-      [572,346,648,384],                                                                              // barrels by the way out
+      [72,244,100,292],                                                  // firewood
+      [100,270,180,312], [112,294,136,326],                              // round table by the fire, green chair
+      [194,256,216,298],                                                 // red armchair
+      [190,322,266,372],                                                 // front round table and chairs
+      [266,238,284,254], [291,251,309,267], [318,265,336,281], [346,281,364,297], // bar stools
+      [350,336,432,372],                                                 // table and chair by the entrance
     ],
-    exits: [{ zone: [652,318,688,384], ask: 'Head back out to the <b>cliffs</b>?', yes: 'Leave', to: 'village', at: { x: 270, y: 194, dir: 1 } }],
+    exits: [{ zone: [402,382,458,414], ask: 'Head back out to the <b>cliffs</b>?', yes: 'Leave', to: 'village', at: { x: 270, y: 194, dir: 1 } }],
     lights: [
-      [135, 222, 60, '255,150,50', 1], [150, 250, 120, '255,130,40', .8], [64, 165, 18, '255,190,110', .5], [455, 232, 40, '255,180,90', .4],
+      [148, 228, 40, '255,150,50', 1], [160, 252, 110, '255,130,40', .8], [138, 190, 14, '255,190,110', .5], [330, 240, 40, '255,180,90', .4],
     ],
-    fx: { sea: false, mist: false, embers: 'fire', emberRate: 9, mote: '255,225,180', motes: 50 },
+    fx: { sea: false, mist: false, embers: 'fire', emberRate: 9, emberSpread: 14, mote: '255,225,180', motes: 50 },
   },
 };
 
@@ -314,7 +317,7 @@ function update(dt) {
   if (fxOn) {
     if (S.fx.sea && Math.random() < dt * 18) spawnSparkle();
     if (Math.random() < dt * S.fx.emberRate) {
-      if (S.fx.embers === 'fire') { const l = S.lights[0]; embers.push({ x: l[0] + (Math.random() - .5) * 22, y: l[1], vy: -6 - Math.random() * 6, vx: (Math.random() - .5) * 4, life: 1.4, max: 1.4 }); }
+      if (S.fx.embers === 'fire') { const l = S.lights[0]; embers.push({ x: l[0] + (Math.random() - .5) * (S.fx.emberSpread || 22), y: l[1], vy: -6 - Math.random() * 6, vx: (Math.random() - .5) * 4, life: 1.4, max: 1.4 }); }
       else { const l = S.lights[(Math.random() * S.lights.length) | 0]; if (l[4] === 1) embers.push({ x: l[0] + (Math.random() - .5) * 4, y: l[1], vy: -6 - Math.random() * 6, vx: (Math.random() - .5) * 4, life: 1.4, max: 1.4 }); }
     }
   }
