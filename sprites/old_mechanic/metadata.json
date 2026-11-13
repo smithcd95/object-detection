@@ -1,0 +1,36 @@
+{
+  "group_id": "3b6d30a1-ec3e-4a84-83af-9520218bed24",
+  "states": [
+    {
+      "character": {
+        "id": "9fc8dc6d-3ba1-4870-81af-c1b3a0036f85",
+        "name": "Idle",
+        "prompt": "Lean old man with grey hair tied in a small top-knot bun, a big bushy white handlebar mustache, tired half-lidded eyes, black short-sleeved shirt, tattooed forearms, a long grey-green work apron with rust stains tied with a cord, a brown leather satchel on his hip, a cloth towel tucked at his belt, dark green cargo trousers, a black boot on one foot and a mechanical prosthetic leg of red-orange and silver metal on the other.",
+        "size": {
+          "width": 80,
+          "height": 80
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-11-13T22:19:30.273251+00:00"
+      },
+      "folder": "Idle",
+      "frames": {
+        "rotations": {
+          "south": "Idle/rotations/south.png",
+          "south-east": "Idle/rotations/south-east.png",
+          "east": "Idle/rotations/east.png",
+          "north-east": "Idle/rotations/north-east.png",
+          "north": "Idle/rotations/north.png",
+          "north-west": "Idle/rotations/north-west.png",
+          "west": "Idle/rotations/west.png",
+          "south-west": "Idle/rotations/south-west.png"
+        },
+        "animations": {}
+      }
+    }
+  ],
+  "export_version": "3.1",
+  "export_date": "2026-11-13T22:21:47.540802"
+}
